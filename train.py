@@ -26,6 +26,8 @@ parser.add_argument('--test-h', type=int, default=1000, help='height')
 parser.add_argument('--save-interval', type=int, default=10)
 parser.add_argument('--use-parallel', action='store_true', help='if use multiple-gpu run this')
 parser.add_argument('--save-path', type=str, default='saved_models')
+parser.add_argument('--resume', action='store_true', help='if resume')
+parser.add_argument('--last-ckpt-path', type=str, default='./', help='last ckpt path')
 
 
 def mu_tonemap(x, mu=5000):
@@ -48,6 +50,10 @@ def process_tensors(in_ldrs, in_hdrs, ref_hdr, use_cuda):
     ref_hdr = ref_hdr.to('cuda' if use_cuda else 'cpu')
     return im1, im2, im3, ref_hdr
 
+def adjust_learning_rate(adjust_lr, optimizer):
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = adjust_lr
+
 if __name__ == '__main__':
     # get the arguments
     args = parser.parse_args()
@@ -59,6 +65,10 @@ if __name__ == '__main__':
     train_loader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=True, num_workers=0)
     # define the network
     net = Wavelet_UNet(args)
+    if args.resume:
+        # load models
+        net_param, optim_param = torch.load('{}/model.pt'.format(args.last_ckpt_path), map_location='cpu')
+        net.load_state_dict(net_param)
     if args.use_parallel:
         net = nn.DataParallel(net)
     # if use cuda
@@ -66,9 +76,18 @@ if __name__ == '__main__':
         net.cuda()
     # define the optimizer
     optim = torch.optim.Adam(net.parameters(), lr=args.lr)
+    best_psnr_mu = 0
+    if args.resume:
+        optim.load_state_dict(optim.state_dict())
+        # adjust the learning rate
+        adjust_learning_rate(adjust_lr=args.lr, optimizer=optim)
+        # eval the network
+        net.eval()
+        cur_psnr_mu = eval_network(args, net)
+        best_psnr_mu = cur_psnr_mu
+        print('[{}] start to evaluate the previous ckpt, best_psnr: {}, cur_lr: {}'.format(datetime.now(), best_psnr_mu, args.lr))
     # start the training
     net.train()
-    best_psnr_mu = 0
     for epoch_id in range(args.epochs):
         for i, (in_ldrs, in_hdrs, ref_hdr) in enumerate(train_loader):
             im1, im2, im3, ref_hdr = process_tensors(in_ldrs, in_hdrs, ref_hdr, use_cuda=args.cuda)
@@ -94,6 +113,7 @@ if __name__ == '__main__':
             print('[{}] start to evaluate the model'.format(datetime.now()))
             net.eval()
             cur_psnr_mu = eval_network(args, net)
+            net.train()
             if cur_psnr_mu > best_psnr_mu:
                 best_psnr_mu = cur_psnr_mu
                 torch.save([net.state_dict(), optim.state_dict()], '{}/model.pt'.format(args.save_path))
