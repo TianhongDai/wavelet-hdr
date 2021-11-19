@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import argparse
 from model import Wavelet_UNet
+from model_no_bn import Wavelet_UNet_No_BN
 from dataset_loader import DatasetLoader
 from torch.utils.data import Dataset, DataLoader
 import torch.nn as nn
@@ -28,7 +29,7 @@ parser.add_argument('--use-parallel', action='store_true', help='if use multiple
 parser.add_argument('--save-path', type=str, default='saved_models')
 parser.add_argument('--resume', action='store_true', help='if resume')
 parser.add_argument('--last-ckpt-path', type=str, default='./', help='last ckpt path')
-
+parser.add_argument('--use-bn', action='store_true', help='if use bn')
 
 def mu_tonemap(x, mu=5000):
     return torch.log(1 + mu * x) / np.log(1 + mu)
@@ -64,7 +65,10 @@ if __name__ == '__main__':
     dataset = DatasetLoader(args.dataset_path)
     train_loader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=True, num_workers=0)
     # define the network
-    net = Wavelet_UNet(args)
+    if args.use_bn:
+        net = Wavelet_UNet(args)
+    else:
+        net = Wavelet_UNet_No_BN(args)
     if args.resume:
         # load models
         net_param, optim_param = torch.load('{}/model.pt'.format(args.last_ckpt_path), map_location='cpu')
