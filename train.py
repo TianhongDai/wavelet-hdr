@@ -30,6 +30,7 @@ parser.add_argument('--save-path', type=str, default='saved_models')
 parser.add_argument('--resume', action='store_true', help='if resume')
 parser.add_argument('--last-ckpt-path', type=str, default='./', help='last ckpt path')
 parser.add_argument('--use-bn', action='store_true', help='if use bn')
+parser.add_argument('--num-workers', type=int, default=0, help='number of workers to sample')
 
 def mu_tonemap(x, mu=5000):
     return torch.log(1 + mu * x) / np.log(1 + mu)
@@ -63,7 +64,7 @@ if __name__ == '__main__':
         os.makedirs(args.save_path, exist_ok=True)
     # get the dataset
     dataset = DatasetLoader(args.dataset_path)
-    train_loader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=True, num_workers=0)
+    train_loader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
     # define the network
     if args.use_bn:
         net = Wavelet_UNet(args)
@@ -121,3 +122,5 @@ if __name__ == '__main__':
             if cur_psnr_mu > best_psnr_mu:
                 best_psnr_mu = cur_psnr_mu
                 torch.save([net.state_dict(), optim.state_dict()], '{}/model.pt'.format(args.save_path))
+            # whatever, save the current model for HPC continue
+            torch.save([net.state_dict(), optim.state_dict()], '{}/cur_model.pt'.format(args.save_path))
