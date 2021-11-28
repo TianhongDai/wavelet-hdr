@@ -10,6 +10,7 @@ from sobel import sobel_estimator
 from datetime import datetime
 import os
 from eval import eval_network
+
 """
 this is the script to train the network
 """
@@ -22,15 +23,15 @@ parser.add_argument('--batch-size', type=int, default=16, help='the batch size')
 parser.add_argument('--nChannel', type=int, default=6, help='the number of input channels')
 parser.add_argument('--lr', type=float, default=0.0002, help='learning rate')
 parser.add_argument('--epochs', type=int, default=20000, help='total epochs')
-parser.add_argument('--test-w', type=int, default=1496, help='width')
+parser.add_argument('--test-w', type=int, default=1500, help='width')
 parser.add_argument('--test-h', type=int, default=1000, help='height')
 parser.add_argument('--save-interval', type=int, default=10)
 parser.add_argument('--use-parallel', action='store_true', help='if use multiple-gpu run this')
 parser.add_argument('--save-path', type=str, default='saved_models')
 parser.add_argument('--resume', action='store_true', help='if resume')
 parser.add_argument('--last-ckpt-path', type=str, default='./', help='last ckpt path')
-parser.add_argument('--use-bn', action='store_true', help='if use bn')
-parser.add_argument('--num-workers', type=int, default=0, help='number of workers to sample')
+parser.add_argument('--no-use-bn', action='store_true', help='if use bn')
+parser.add_argument('--num-workers', type=int, default=4, help='number of workers to sample')
 
 def mu_tonemap(x, mu=5000):
     return torch.log(1 + mu * x) / np.log(1 + mu)
@@ -66,10 +67,10 @@ if __name__ == '__main__':
     dataset = DatasetLoader(args.dataset_path)
     train_loader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
     # define the network
-    if args.use_bn:
-        net = Wavelet_UNet(args)
-    else:
+    if args.no_use_bn:
         net = Wavelet_UNet_No_BN(args)
+    else:
+        net = Wavelet_UNet(args)
     if args.resume:
         # load models
         net_param, optim_param = torch.load('{}/model.pt'.format(args.last_ckpt_path), map_location='cpu')

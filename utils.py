@@ -69,5 +69,22 @@ def load_data(path, use_cuda, image_size):
     im3 = torch.tensor(im3, dtype=torch.float32, device='cuda' if use_cuda else 'cpu').unsqueeze(0)
     return im1, im2, im3, gt
 
+def radiance_writer(out_path, image):
+    """
+    write the hdr image
+    """
+    with open(out_path, "wb") as f:
+        f.write(b"#?RADIANCE\n# Made with Python & Numpy\nFORMAT=32-bit_rle_rgbe\n\n")
+        f.write(b"-Y %d +X %d\n" %(image.shape[0], image.shape[1]))
+        brightest = np.maximum(np.maximum(image[...,0], image[...,1]), image[...,2])
+        mantissa = np.zeros_like(brightest)
+        exponent = np.zeros_like(brightest)
+        np.frexp(brightest, mantissa, exponent)
+        scaled_mantissa = mantissa * 255.0 / brightest
+        rgbe = np.zeros((image.shape[0], image.shape[1], 4), dtype=np.uint8)
+        rgbe[...,0:3] = np.around(image[...,0:3] * scaled_mantissa[...,None])
+        rgbe[...,3] = np.around(exponent + 128)
+        rgbe.flatten().tofile(f)
+
 if __name__ == '__main__':
     pass
