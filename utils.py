@@ -31,13 +31,13 @@ def center_crop(x, image_size=[1000, 1496]):
 
 def load_data(path, use_cuda, image_size):
     in_ldr_paths = sorted(glob(os.path.join(path, '*.tif')))
-    sht = cv2.imread('{}'.format(in_ldr_paths[0]))[:, :, ::-1]
-    mid = cv2.imread('{}'.format(in_ldr_paths[1]))[:, :, ::-1]
-    lng = cv2.imread('{}'.format(in_ldr_paths[2]))[:, :, ::-1]
+    sht = cv2.imread('{}'.format(in_ldr_paths[0]), -1)[:, :, ::-1]
+    mid = cv2.imread('{}'.format(in_ldr_paths[1]), -1)[:, :, ::-1]
+    lng = cv2.imread('{}'.format(in_ldr_paths[2]), -1)[:, :, ::-1]
     # noramlize
-    sht = sht.astype(np.float32) / 255.0
-    mid = mid.astype(np.float32) / 255.0
-    lng = lng.astype(np.float32) / 255.0
+    sht = sht.astype(np.float32) / (2**16 - 1)
+    mid = mid.astype(np.float32) / (2**16 - 1)
+    lng = lng.astype(np.float32) / (2**16 - 1)
     # read the ground truth
     gt = cv2.imread('{}/HDRImg.hdr'.format(path), -1).astype(np.float32)
     gt = gt[:, :, ::-1]
