@@ -19,8 +19,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--dataset-path', type=str, default='./dataset/Kalantari/Training')
 parser.add_argument('--testset-path', type=str, default='./dataset/Kalantari/Test')
 parser.add_argument('--cuda', action='store_true', help='use cuda to run the training')
-parser.add_argument('--batch-size', type=int, default=16, help='the batch size')
-parser.add_argument('--nChannel', type=int, default=6, help='the number of input channels')
+parser.add_argument('--batch-size', type=int, default=8, help='the batch size')
+parser.add_argument('--nChannel', type=int, default=8, help='the number of input channels')
 parser.add_argument('--lr', type=float, default=0.0002, help='learning rate')
 parser.add_argument('--epochs', type=int, default=20000, help='total epochs')
 parser.add_argument('--test-w', type=int, default=1500, help='width')
@@ -41,9 +41,9 @@ def process_tensors(in_ldrs, in_hdrs, ref_hdr, use_cuda):
     convert the tensor
     """
     # process the input
-    im1 = torch.cat([in_ldrs[:, :, :, :3], in_hdrs[:, :, :, :3]], dim=3).permute(0, 3, 1, 2)
-    im2 = torch.cat([in_ldrs[:, :, :, 3:6], in_hdrs[:, :, :, 3:6]], dim=3).permute(0, 3, 1, 2)
-    im3 = torch.cat([in_ldrs[:, :, :, 6:9], in_hdrs[:, :, :, 6:9]], dim=3).permute(0, 3, 1, 2)
+    im1 = torch.cat([in_ldrs[:, :, :, :4], in_hdrs[:, :, :, :4]], dim=3).permute(0, 3, 1, 2)
+    im2 = torch.cat([in_ldrs[:, :, :, 4:8], in_hdrs[:, :, :, 4:8]], dim=3).permute(0, 3, 1, 2)
+    im3 = torch.cat([in_ldrs[:, :, :, 8:12], in_hdrs[:, :, :, 8:12]], dim=3).permute(0, 3, 1, 2)
     # process the ground truth
     ref_hdr = ref_hdr.permute(0, 3, 1, 2)
     # send the tensor into the cuda

@@ -5,7 +5,7 @@ import argparse
 from model import Wavelet_UNet
 import os
 import torch.nn.functional as F
-from utils import cal_psnr, load_data, mu_tonemap, radiance_writer
+from utils import cal_psnr, load_data, mu_tonemap, radiance_writer, simple_isp
 from datetime import datetime
 from skimage.metrics import structural_similarity
 
@@ -16,7 +16,7 @@ this script is used to cal the psnr value
 parser = argparse.ArgumentParser()
 parser.add_argument('--testset-path', type=str, default='./dataset/Kalantari/Test')
 parser.add_argument('--cuda', action='store_true', help='use cuda to run the training')
-parser.add_argument('--nChannel', type=int, default=6, help='the number of input channels')
+parser.add_argument('--nChannel', type=int, default=8, help='the number of input channels')
 parser.add_argument('--test-w', type=int, default=1500, help='width')
 parser.add_argument('--test-h', type=int, default=1000, help='height')
 parser.add_argument('--save-path', type=str, default='saved_models')
@@ -45,20 +45,55 @@ if __name__ == '__main__':
     net.eval()
     # start to load the data
     psnr_mu, psnr_l, ssim_mu, ssim_l = [], [], [], []
-    scene_dirs = sorted(os.listdir(args.testset_path))
-    for scene in scene_dirs:
+    #scene_dirs = sorted(os.listdir(args.testset_path))
+    test_scenes = []
+    with open('test.lst', 'r') as f:
+        for line in f.readlines():
+            line = line.strip()
+            test_scenes.append(line)
+    for scene in test_scenes:
         im1, im2, im3, ref_hdr = load_data('{}/{}'.format(args.testset_path, scene), use_cuda=args.cuda, image_size=[args.test_h, args.test_w])
         # padding the input image
-        im1 = F.pad(im1, (2, 2, 0, 0), mode='reflect')
-        im2 = F.pad(im2, (2, 2, 0, 0), mode='reflect')
-        im3 = F.pad(im3, (2, 2, 0, 0), mode='reflect')
+        im1 = im1[:, :, 66:-66, 24:-24]
+        im2 = im2[:, :, 66:-66, 24:-24]
+        im3 = im3[:, :, 66:-66, 24:-24]
+        ref_hdr = ref_hdr[66:-66, 24:-24, :]
         with torch.no_grad():
-            pred_hdr = net(im1, im2, im3)
+            # block1
+            im1_1 = im1[:, :, :800, :1280]
+            im2_1 = im2[:, :, :800, :1280]
+            im3_1 = im3[:, :, :800, :1280]
+            # block2
+            im1_2 = im1[:, :, :800, 1280:]
+            im2_2 = im2[:, :, :800, 1280:]
+            im3_2 = im3[:, :, :800, 1280:]
+            # block3
+            im1_3 = im1[:, :, 800:, :1280]
+            im2_3 = im2[:, :, 800:, :1280]
+            im3_3 = im3[:, :, 800:, :1280]
+            # block 4
+            im1_4 = im1[:, :, 800:, 1280:]
+            im2_4 = im2[:, :, 800:, 1280:]
+            im3_4 = im3[:, :, 800:, 1280:]
+            # pread
+            pred_hdr1 = net(im1_1, im2_1, im3_1)
+            pred_hdr2 = net(im1_2, im2_2, im3_2)
+            pred_hdr3 = net(im1_3, im2_3, im3_3)
+            pred_hdr4 = net(im1_4, im2_4, im3_4)
             # convert to the numpy array
-            pred_hdr = pred_hdr.detach().cpu().numpy().squeeze()
-            pred_hdr = np.transpose(pred_hdr, (1, 2, 0))
+            pred_hdr1 = pred_hdr1.detach().cpu().numpy().squeeze()
+            pred_hdr2 = pred_hdr2.detach().cpu().numpy().squeeze()
+            pred_hdr3 = pred_hdr3.detach().cpu().numpy().squeeze()
+            pred_hdr4 = pred_hdr4.detach().cpu().numpy().squeeze()
+            # transpose
+            pred_hdr1 = np.transpose(pred_hdr1, (1, 2, 0))
+            pred_hdr2 = np.transpose(pred_hdr2, (1, 2, 0))
+            pred_hdr3 = np.transpose(pred_hdr3, (1, 2, 0))
+            pred_hdr4 = np.transpose(pred_hdr4, (1, 2, 0))
             # crop the padding
-            pred_hdr = pred_hdr[:, 2:-2, :]
+            pred_up = np.concatenate([pred_hdr1, pred_hdr2], axis=1)
+            pred_down = np.concatenate([pred_hdr3, pred_hdr4], axis=1)
+            pred_hdr = np.concatenate([pred_up, pred_down], axis=0)
         # tonemapping and calculate the psnr
         psnr_mu_ = cal_psnr(mu_tonemap(pred_hdr), mu_tonemap(ref_hdr))
         psnr_l_ = cal_psnr(pred_hdr, ref_hdr)
@@ -72,9 +107,10 @@ if __name__ == '__main__':
         ssim_mu.append(ssim_mu_)
         ssim_l.append(ssim_l_)
         if args.save_image:
-            radiance_writer('{}/{}.hdr'.format(hdr_path, scene), pred_hdr)
-            rgb_im = mu_tonemap(pred_hdr)[:, :, ::-1]
-            cv2.imwrite('{}/{}.png'.format(rgb_path, scene), np.uint8(rgb_im * 255))
+            #radiance_writer('{}/{}.hdr'.format(hdr_path, scene), pred_hdr)
+            #rgb_im = mu_tonemap(pred_hdr)[:, :, ::-1]
+            rgb_im = simple_isp(pred_hdr)
+            cv2.imwrite('{}/{}.png'.format(rgb_path, scene), rgb_im)
     print('mean psnr-mu: {:.4f}'.format(np.mean(psnr_mu)))
     print('mean psnr-l: {:.4f}'.format(np.mean(psnr_l)))
     print('mean ssim-mu: {:.4f}'.format(np.mean(ssim_mu)))

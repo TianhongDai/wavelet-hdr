@@ -147,7 +147,7 @@ class Wavelet_UNet(nn.Module):
         self.h_merge1 = H_Merge(64*2)
         self.h_merge2 = H_Merge(64*1)
         # conv
-        self.conv_hdr = nn.Conv2d(64, 3, kernel_size=5, stride=1, padding=2)
+        self.conv_hdr = nn.Conv2d(64, 4, kernel_size=5, stride=1, padding=2)
         self.relu = nn.ReLU()
         # attention
         self.att12 = AttentionModule(128)
@@ -184,7 +184,7 @@ class Wavelet_UNet(nn.Module):
         d_3 = d_3 + x2_global
         out = self.conv_hdr(d_3)
         # output
-        return torch.sigmoid(out)
+        return F.softplus(out)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
