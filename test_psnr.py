@@ -5,7 +5,7 @@ import argparse
 from model import Wavelet_UNet
 import os
 import torch.nn.functional as F
-from utils import cal_psnr, load_data, mu_tonemap, radiance_writer, simple_isp
+from utils import cal_psnr, load_data, mu_tonemap, radiance_writer, simple_isp, create_rawRGGB, dirtDM
 from datetime import datetime
 from skimage.metrics import structural_similarity
 
@@ -107,8 +107,8 @@ if __name__ == '__main__':
         ssim_mu.append(ssim_mu_)
         ssim_l.append(ssim_l_)
         if args.save_image:
-            #radiance_writer('{}/{}.hdr'.format(hdr_path, scene), pred_hdr)
-            #rgb_im = mu_tonemap(pred_hdr)[:, :, ::-1]
+            hdr = dirtDM(pred_hdr)
+            radiance_writer('{}/{}.hdr'.format(hdr_path, scene), hdr)
             rgb_im = simple_isp(pred_hdr)
             cv2.imwrite('{}/{}.png'.format(rgb_path, scene), rgb_im)
     print('mean psnr-mu: {:.4f}'.format(np.mean(psnr_mu)))
