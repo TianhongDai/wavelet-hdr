@@ -32,6 +32,7 @@ parser.add_argument('--resume', action='store_true', help='if resume')
 parser.add_argument('--last-ckpt-path', type=str, default='./', help='last ckpt path')
 parser.add_argument('--no-use-bn', action='store_true', help='if use bn')
 parser.add_argument('--num-workers', type=int, default=4, help='number of workers to sample')
+parser.add_argument('--wavelet-type', type=str, default='haar', help='the type of wavelet')
 
 def mu_tonemap(x, mu=5000):
     return torch.log(1 + mu * x) / np.log(1 + mu)

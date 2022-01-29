@@ -30,12 +30,12 @@ class Encoder(nn.Module):
     """
     the similar structure as the ECCV paper
     """
-    def __init__(self, in_channels, nFeat):
+    def __init__(self, in_channels, nFeat, wavelet_type='haar'):
         super().__init__()
         self.conv1 = nn.Conv2d(in_channels, nFeat, kernel_size=5, stride=1, padding=2)
-        self.dwt1 = DWT_2D(wavename='haar')
+        self.dwt1 = DWT_2D(wavename=wavelet_type)
         self.conv2 = nn.Conv2d(nFeat, nFeat*2, kernel_size=5, stride=1, padding=2)
-        self.dwt2 = DWT_2D(wavename='haar')
+        self.dwt2 = DWT_2D(wavename=wavelet_type)
         self.relu = nn.LeakyReLU()
         self.bn = nn.BatchNorm2d(nFeat*2)
     
@@ -47,10 +47,10 @@ class Encoder(nn.Module):
         return LL1, LL2, (LH1, HL1, HH1), (LH2, HL2, HH2), x1
 
 class Merge(nn.Module):
-    def __init__(self, in_channels, out_channels, num_residual=9):
+    def __init__(self, in_channels, out_channels, wavelet_type='haar', num_residual=9):
         super().__init__()
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=5, stride=1, padding=2)
-        self.dwt = DWT_2D(wavename='haar')
+        self.dwt = DWT_2D(wavename=wavelet_type)
         self.relu = nn.LeakyReLU()
         self.bn = nn.BatchNorm2d(out_channels)
         res_layers = []
@@ -79,13 +79,13 @@ class ResidualBlocks(nn.Module):
         return x + x_res
 
 class Upsampler(nn.Module):
-    def __init__(self, in_channels, out_channels, middle):
+    def __init__(self, in_channels, out_channels, middle, wavelet_type='haar'):
         super().__init__()
         self.deconv1 = nn.Conv2d(in_channels, middle, kernel_size=3, stride=1, padding=1)
         self.deconv2 = nn.Conv2d(middle, out_channels, kernel_size=3, stride=1, padding=1)
         self.bn = nn.BatchNorm2d(out_channels)
         self.relu = nn.ReLU()
-        self.idwt = IDWT_2D(wavename='haar')
+        self.idwt = IDWT_2D(wavename=wavelet_type)
     
     def forward(self, x, x_h):
         x = self.deconv1(x)
@@ -135,14 +135,14 @@ class Wavelet_UNet(nn.Module):
     def __init__(self, args):
         super().__init__()
         nChannel = args.nChannel
-        self.encoder1 = Encoder(nChannel, 64)
-        self.encoder2 = Encoder(nChannel, 64)
-        self.encoder3 = Encoder(nChannel, 64)
+        self.encoder1 = Encoder(nChannel, 64, args.wavelet_type)
+        self.encoder2 = Encoder(nChannel, 64, args.wavelet_type)
+        self.encoder3 = Encoder(nChannel, 64, args.wavelet_type)
         # define the merge block
-        self.merge = Merge(64*2*3, 64*4)
-        self.decoder1 = Upsampler(64*4*2, 64*2, 64*4)
-        self.decoder2 = Upsampler(64*2*4, 64, 64*2)
-        self.decoder3 = Upsampler(64*1*4, 64, 64)
+        self.merge = Merge(64*2*3, 64*4, args.wavelet_type)
+        self.decoder1 = Upsampler(64*4*2, 64*2, 64*4, args.wavelet_type)
+        self.decoder2 = Upsampler(64*2*4, 64, 64*2, args.wavelet_type)
+        self.decoder3 = Upsampler(64*1*4, 64, 64, args.wavelet_type)
         # high-freq merge
         self.h_merge1 = H_Merge(64*2)
         self.h_merge2 = H_Merge(64*1)
