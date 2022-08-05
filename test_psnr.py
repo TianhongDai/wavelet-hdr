@@ -21,6 +21,7 @@ parser.add_argument('--test-w', type=int, default=1500, help='width')
 parser.add_argument('--test-h', type=int, default=1000, help='height')
 parser.add_argument('--save-path', type=str, default='saved_models')
 parser.add_argument('--save-image', action='store_true', help='save the processed hdr image')
+parser.add_argument('--wavelet-type', type=str, default='haar')
 parser.add_argument('--save-hdr-path', type=str, default='./results')
 
 if __name__ == '__main__':
