@@ -1,5 +1,5 @@
 # Wavelet-Based Network For High Dynamic Range Imaging
-This is the official code for our paper "Wavelet-Based Network For High Dynamic Range Imaging" [CVIU 2023].
+This is the official code for our paper "[Wavelet-Based Network For High Dynamic Range Imaging](https://www.sciencedirect.com/science/article/pii/S1077314223002618)" [CVIU 2023].
 
 ## Requirements
 - pytorch==1.4.0
