@@ -1,11 +1,11 @@
 import numpy as np
 import cv2 
+import os
 import torch
 import argparse
-from model import Wavelet_UNet
-import os
+from network.model import FHDRNet
+from utils.utils import cal_psnr, load_data, mu_tonemap, radiance_writer
 import torch.nn.functional as F
-from utils import cal_psnr, load_data, mu_tonemap, radiance_writer
 from datetime import datetime
 from skimage.metrics import structural_similarity
 
@@ -23,6 +23,7 @@ parser.add_argument('--save-path', type=str, default='saved_models')
 parser.add_argument('--save-image', action='store_true', help='save the processed hdr image')
 parser.add_argument('--wavelet-type', type=str, default='haar')
 parser.add_argument('--save-hdr-path', type=str, default='./results')
+parser.add_argument('--use-bn', action='store_true')
 
 if __name__ == '__main__':
     # get the args
@@ -36,7 +37,7 @@ if __name__ == '__main__':
         if not os.path.exists(rgb_path):
             os.makedirs(rgb_path, exist_ok=True)
     # build the model
-    net = Wavelet_UNet(args)
+    net = FHDRNet(args)
     # lado the model 
     net_param, _ = torch.load('{}/model.pt'.format(args.save_path), map_location='cpu')
     net.load_state_dict(net_param)

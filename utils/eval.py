@@ -2,9 +2,9 @@ import numpy as np
 import torch
 import os
 import argparse
-from model import Wavelet_UNet
 import cv2
-from utils import cal_psnr, load_data, mu_tonemap
+from network.model import FHDRNet
+from utils.utils import cal_psnr, load_data, mu_tonemap
 import torch.nn.functional as F
 
 """
@@ -45,9 +45,10 @@ if __name__ == '__main__':
     parser.add_argument('--save-interval', type=int, default=10)
     parser.add_argument('--use-parallel', action='store_true', help='if use multiple-gpu run this')
     parser.add_argument('--save-path', type=str, default='saved_models')
+    parser.add_argument('--use-bn', action='store_true', help='if use batch normlisation')
     # get the argument
     args = parser.parse_args()
-    net = Wavelet_UNet(args)
+    net = FHDRNet(args)
     net.cuda()
     mean_psnr_mu = eval_network(args, net)
     print(mean_psnr_mu)

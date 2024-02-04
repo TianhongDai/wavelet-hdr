@@ -30,67 +30,87 @@ class Encoder(nn.Module):
     """
     the similar structure as the ECCV paper
     """
-    def __init__(self, in_channels, nFeat, wavelet_type='haar'):
+    def __init__(self, in_channels, nFeat, use_bn=False, wavelet_type='haar'):
         super().__init__()
         self.conv1 = nn.Conv2d(in_channels, nFeat, kernel_size=5, stride=1, padding=2)
         self.dwt1 = DWT_2D(wavename=wavelet_type)
         self.conv2 = nn.Conv2d(nFeat, nFeat*2, kernel_size=5, stride=1, padding=2)
         self.dwt2 = DWT_2D(wavename=wavelet_type)
         self.relu = nn.LeakyReLU()
-        self.bn = nn.BatchNorm2d(nFeat*2)
+        self.use_bn = use_bn
+        if self.use_bn:
+            self.bn = nn.BatchNorm2d(nFeat*2)
     
     def forward(self, x):
         x1 = self.relu(self.conv1(x))
         LL1, LH1, HL1, HH1 = self.dwt1(x1)
-        x2_ = self.relu(self.bn(self.conv2(LL1)))
+        if self.use_bn:
+            x2_ = self.relu(self.bn(self.conv2(LL1)))
+        else:
+            x2_ = self.relu(self.conv2(LL1))
         LL2, LH2, HL2, HH2 = self.dwt2(x2_)
         return LL1, LL2, (LH1, HL1, HH1), (LH2, HL2, HH2), x1
 
 class Merge(nn.Module):
-    def __init__(self, in_channels, out_channels, wavelet_type='haar', num_residual=9):
+    def __init__(self, in_channels, out_channels, use_bn=False, wavelet_type='haar', num_residual=9):
         super().__init__()
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=5, stride=1, padding=2)
         self.dwt = DWT_2D(wavename=wavelet_type)
         self.relu = nn.LeakyReLU()
-        self.bn = nn.BatchNorm2d(out_channels)
+        self.use_bn = use_bn
+        if self.use_bn:
+            self.bn = nn.BatchNorm2d(out_channels)
         res_layers = []
         for _ in range(num_residual):
             res_layers.append(nn.LeakyReLU())
-            res_layers.append(ResidualBlocks(out_channels))
+            res_layers.append(ResidualBlocks(self.use_bn, out_channels))
         self.res_blocks = nn.Sequential(*res_layers)
     
     def forward(self, x):
-        x1_ = self.relu(self.bn(self.conv(x)))
+        if self.use_bn:
+            x1_ = self.relu(self.bn(self.conv(x)))
+        else:
+            x1_ = self.relu(self.conv(x))
         LL1, LH1, HL1, HH1 = self.dwt(x1_)
         x2 = self.res_blocks(LL1)
         return LL1, x2, (LH1, HL1, HH1)
 
 class ResidualBlocks(nn.Module):
-    def __init__(self, nFeat):
+    def __init__(self, use_bn, nFeat):
         super().__init__()
         self.conv1 = nn.Conv2d(nFeat, nFeat, kernel_size=3, stride=1, padding=1)
         self.conv2 = nn.Conv2d(nFeat, nFeat, kernel_size=3, stride=1, padding=1)
-        self.bn = nn.BatchNorm2d(nFeat)
+        self.use_bn = use_bn
+        if self.use_bn: 
+            self.bn = nn.BatchNorm2d(nFeat)
         self.relu = nn.ReLU()
     
     def forward(self, x):
         x_res = self.conv1(x)
-        x_res = self.bn(self.conv2(self.relu(x_res)))
+        if self.use_bn:
+            x_res = self.bn(self.conv2(self.relu(x_res)))
+        else:
+            x_res = self.conv2(self.relu(x_res))
         return x + x_res
 
 class Upsampler(nn.Module):
-    def __init__(self, in_channels, out_channels, middle, wavelet_type='haar'):
+    def __init__(self, in_channels, out_channels, middle, use_bn, wavelet_type='haar'):
         super().__init__()
         self.deconv1 = nn.Conv2d(in_channels, middle, kernel_size=3, stride=1, padding=1)
         self.deconv2 = nn.Conv2d(middle, out_channels, kernel_size=3, stride=1, padding=1)
-        self.bn = nn.BatchNorm2d(out_channels)
+        self.use_bn = use_bn
+        if self.use_bn:
+            self.bn = nn.BatchNorm2d(out_channels)
         self.relu = nn.ReLU()
         self.idwt = IDWT_2D(wavename=wavelet_type)
     
     def forward(self, x, x_h):
         x = self.deconv1(x)
         x = self.idwt(x, x_h[0], x_h[1], x_h[2])
-        x = self.relu(self.bn(self.deconv2(x)))
+        if self.use_bn:
+            x = self.relu(self.bn(self.deconv2(x)))
+        else:
+            x = self.relu(self.deconv2(x))
         return x
 
 class H_Merge(nn.Module):
@@ -131,18 +151,18 @@ class H_Merge(nn.Module):
         hh_ = self.conv_hh_2(hh_)
         return lh_, hl_, hh_
 
-class Wavelet_UNet(nn.Module):
+class FHDRNet(nn.Module):
     def __init__(self, args):
         super().__init__()
         nChannel = args.nChannel
-        self.encoder1 = Encoder(nChannel, 64, args.wavelet_type)
-        self.encoder2 = Encoder(nChannel, 64, args.wavelet_type)
-        self.encoder3 = Encoder(nChannel, 64, args.wavelet_type)
+        self.encoder1 = Encoder(nChannel, 64, args.use_bn, args.wavelet_type)
+        self.encoder2 = Encoder(nChannel, 64, args.use_bn, args.wavelet_type)
+        self.encoder3 = Encoder(nChannel, 64, args.use_bn, args.wavelet_type)
         # define the merge block
-        self.merge = Merge(64*2*3, 64*4, args.wavelet_type)
-        self.decoder1 = Upsampler(64*4*2, 64*2, 64*4, args.wavelet_type)
-        self.decoder2 = Upsampler(64*2*4, 64, 64*2, args.wavelet_type)
-        self.decoder3 = Upsampler(64*1*4, 64, 64, args.wavelet_type)
+        self.merge = Merge(64*2*3, 64*4, args.use_bn, args.wavelet_type)
+        self.decoder1 = Upsampler(64*4*2, 64*2, 64*4, args.use_bn, args.wavelet_type)
+        self.decoder2 = Upsampler(64*2*4, 64, 64*2, args.use_bn, args.wavelet_type)
+        self.decoder3 = Upsampler(64*1*4, 64, 64, args.use_bn, args.wavelet_type)
         # high-freq merge
         self.h_merge1 = H_Merge(64*2)
         self.h_merge2 = H_Merge(64*1)
@@ -191,7 +211,7 @@ if __name__ == '__main__':
     parser.add_argument('--nChannel', type=int, default=6, help='the number of input channels')
     args = parser.parse_args()
     # define the wavelet
-    net = Wavelet_UNet(args)
+    net = FHDRNet(args)
     net.cuda()
     inputs = np.ones((1, 6, 256, 256), dtype=np.float32)
     inputs = torch.tensor(inputs, dtype=torch.float32, device='cuda')

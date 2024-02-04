@@ -1,15 +1,14 @@
 import numpy as np 
 import torch
 import argparse
-from model import Wavelet_UNet
-from model_no_bn import Wavelet_UNet_No_BN
-from dataset_loader import DatasetLoader
+from network.model import FHDRNet
+from utils.dataset_loader import DatasetLoader
+from utils.eval import eval_network
+from utils.sobel import sobel_estimator
 from torch.utils.data import Dataset, DataLoader
 import torch.nn as nn
-from sobel import sobel_estimator
 from datetime import datetime
 import os
-from eval import eval_network
 
 """
 this is the script to train the network
@@ -30,7 +29,7 @@ parser.add_argument('--use-parallel', action='store_true', help='if use multiple
 parser.add_argument('--save-path', type=str, default='saved_models')
 parser.add_argument('--resume', action='store_true', help='if resume')
 parser.add_argument('--last-ckpt-path', type=str, default='./', help='last ckpt path')
-parser.add_argument('--no-use-bn', action='store_true', help='if use bn')
+parser.add_argument('--use-bn', action='store_true', help='if use bn')
 parser.add_argument('--num-workers', type=int, default=4, help='number of workers to sample')
 parser.add_argument('--wavelet-type', type=str, default='haar', help='the type of wavelet')
 
@@ -68,10 +67,7 @@ if __name__ == '__main__':
     dataset = DatasetLoader(args.dataset_path)
     train_loader = DataLoader(dataset=dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
     # define the network
-    if args.no_use_bn:
-        net = Wavelet_UNet_No_BN(args)
-    else:
-        net = Wavelet_UNet(args)
+    net = FHDRNet(args)
     if args.resume:
         # load models
         net_param, optim_param = torch.load('{}/model.pt'.format(args.last_ckpt_path), map_location='cpu')
