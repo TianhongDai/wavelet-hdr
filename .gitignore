@@ -114,5 +114,6 @@ venv.bak/
 *.log
 *.jpeg
 *.png 
+!assets/FHDRNet.png
 dataset
 *.hdr
