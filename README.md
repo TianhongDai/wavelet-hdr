@@ -1,6 +1,6 @@
 # Wavelet-Based Network For High Dynamic Range Imaging
 This is the official code for our paper "[Wavelet-Based Network For High Dynamic Range Imaging](https://www.sciencedirect.com/science/article/pii/S1077314223002618)" [CVIU 2023].
-![netowrk_structure](assets/FHDRNet.pdf)
+![netowrk_structure](assets/FHDRNet.png)
 ## Requirements
 - pytorch==1.4.0
 - opencv-python
